@@ -1,23 +1,6 @@
-version: "3.8"
+version: "3.11"
 
 services:
-  celery_worker:
-    build:
-      context: .
-      args:
-        CPU_ONLY: "true"
-    image: converter-cpu-image
-    command: poetry run celery -A worker.celery_config worker --pool=solo -n worker_primary --loglevel=info
-    volumes:
-      - .:/app
-      - model_cache:/tmp
-    environment:
-      - REDIS_HOST=${REDIS_HOST}
-      - ENV=production
-    restart: on-failure
-    depends_on:
-      - redis
-
   app:
     container_name: marker-api-cpu
     build:
@@ -38,35 +21,6 @@ services:
       - .:/app
       - model_cache:/tmp
     restart: on-failure
-    depends_on:
-      - redis
-
-  redis:
-    container_name: redis
-    image: redis:7.2.4-alpine
-    ports:
-      - "6379:6379"
-
-  flower:
-    container_name: flower_cpu
-    build:
-      context: .
-      args:
-        CPU_ONLY: "true"
-    image: converter-cpu-image
-    command: poetry run celery -A worker.celery_config flower --port=5555
-    ports:
-      - "5556:5555"
-    volumes:
-      - .:/app
-      - model_cache:/tmp
-    environment:
-      - REDIS_HOST=${REDIS_HOST}
-      - ENV=production
-    depends_on:
-      - app
-      - redis
-      - celery_worker
 
 volumes:
   model_cache:

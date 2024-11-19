@@ -1,5 +1,19 @@
 from pydantic import BaseModel, Field
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Dict, Any
+
+
+class ParserChunkMetadata(BaseModel):
+    page_number: int
+    chunk_type: str
+    bbox: None
+    file_type: str
+    filename: str
+    headings: Optional[List[str]]
+
+
+class ParserChunk(BaseModel):
+    text: str
+    metadata: ParserChunkMetadata
 
 
 class ImageData(BaseModel):
@@ -10,8 +24,7 @@ class ImageData(BaseModel):
 
 class ConversionResult(BaseModel):
     filename: str = Field(None, description="The filename of the document")
-    markdown: str = Field(None, description="The markdown content of the document")
-    images: List[ImageData] = Field(default_factory=list, description="The images in the document")
+    chunk_dicts: List[ParserChunk] = Field(default_factory=ParserChunk, description="The list of chunks in the document")
     error: Optional[str] = Field(None, description="The error that occurred during the conversion")
 
 

@@ -1,8 +1,12 @@
 import re
+import json
 from enum import Enum
+import filetype
 from typing import Dict, List
 
-import filetype
+import boto3
+
+from document_converter.settings import IMAGE_RESOLUTION_SCALE, logger
 
 
 class InputFormat(str, Enum):
@@ -103,3 +107,48 @@ def mime_from_extension(ext):
 
 def is_file_format_supported(file_bytes: bytes, filename: str) -> bool:
     return guess_format(file_bytes, filename) in FormatToExtensions.keys()
+
+
+def image_to_text(
+    base64_image: str,
+    region_name="us-east-1",
+    max_tokens=256,
+    temperature=0.3,
+    top_p=0.95,
+) -> str:
+    inference_profile_id = "us.meta.llama3-2-11b-instruct-v1:0"
+
+    # Initialize the Bedrock client
+    client = boto3.client("bedrock-runtime", region_name=region_name)  # Adjust region as necessary
+
+    # Prepare the messages for the model invocation
+    prompt = """<|begin_of_text|><|start_header_id|>system<|end_header_id|>You are a helpful AI extraction for extracting text from images. No add any additional text.<|eot_id|><|start_header_id|>user<|end_header_id|>Extract all text in the given image in markdown.<|eot_id|><|start_header_id|>assistant<|end_header_id|>"""  # noqa: E501
+
+    # Call the model with cross-region inference
+    try:
+        body = json.dumps(
+            {
+                "temperature": temperature,
+                "top_p": top_p,
+                "max_gen_len": max_tokens,
+                "prompt": prompt,
+                "images": [base64_image],
+            },
+        )
+
+        logger.info(f"Calling {inference_profile_id}")
+
+        response = client.invoke_model(
+            modelId=inference_profile_id,
+            body=body,
+            contentType="application/json",
+            accept="application/json",
+        )
+        response_body = json.loads(response.get("body").read())
+
+        # text
+        return response_body.get("generation").strip()
+
+    except Exception as e:
+        logger.exception(f"An error occurred while invoking the model: {e}")
+        return ""

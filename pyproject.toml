@@ -1,20 +1,18 @@
 [tool.poetry]
-name = "document-to-markdown"
+name = "document_converter"
 version = "0.1.0"
 description = ""
-authors = ["drmingler <davidemmanuel75@gmail.com>"]
+authors = ["Atrix <vuong.nguyen@atrix.ai>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.11"
 fastapi = "^0.115.4"
 uvicorn = "^0.32.0"
-docling = "^2.3.1"
+docling = "^2.4.0"
 python-multipart = "^0.0.17"
-celery = "^5.4.0"
-flower = "^2.0.1"
-redis = "^5.2.0"
 gunicorn = "^23.0.0"
+boto3 = "^1.35.64"
 
 
 [build-system]

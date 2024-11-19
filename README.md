@@ -72,62 +72,23 @@ REDIS_HOST=redis://localhost:6379/0
 ENV=development
 ```
 
-### 4. Start Redis Server
-Start Redis locally (install if not already installed):
-
-#### For MacOS:
-```bash
-brew install redis
-brew services start redis
-```
-
-#### For Ubuntu/Debian:
-```bash
-sudo apt-get install redis-server
-sudo service redis-server start
-```
-
-### 5. Start the Application Components
+### 4. Start the Application Components
 
 1. Start the FastAPI server:
 ```bash
 poetry run uvicorn main:app --reload --port 8080
 ```
 
-2. Start Celery worker (in a new terminal):
-```bash
-poetry run celery -A worker.celery_config worker --pool=solo -n worker_primary --loglevel=info
-```
-
-3. Start Flower dashboard for monitoring (optional, in a new terminal):
-```bash
-poetry run celery -A worker.celery_config flower --port=5555
-```
-
-### 6. Verify Installation
+### 5. Verify Installation
 
 1. Check if the API server is running:
 ```bash
 curl http://localhost:8080/docs
 ```
 
-2. Test Celery worker:
-```bash
-curl -X POST "http://localhost:8080/documents/convert" \
-  -H "accept: application/json" \
-  -H "Content-Type: multipart/form-data" \
-  -F "document=@/path/to/test.pdf"
-```
-
-3. Access monitoring dashboard:
-- Open http://localhost:5555 in your browser to view the Flower dashboard
-
 ### Development Notes
 
 - The API documentation is available at http://localhost:8080/docs
-- Redis is used as both message broker and result backend for Celery tasks
-- The service supports both synchronous and asynchronous document conversion
-- For development, the server runs with auto-reload enabled
 
 ## Environment Setup (Running in Docker)
 
@@ -139,20 +100,19 @@ cd document-converter
 
 2. Create a `.env` file:
 ```bash
-REDIS_HOST=redis://redis:6379/0
 ENV=production
 ```
 
 ### CPU Mode
-To start the service using CPU-only processing, use the following command. You can adjust the number of Celery workers by specifying the --scale option. In this example, 1 worker will be created:
+To start the service using CPU-only processing, use the following command.:
 ```bash
-docker-compose -f docker-compose.cpu.yml up --build --scale celery_worker=1
+docker-compose -f docker-compose.cpu.yml up --build
 ```
 
 ### GPU Mode (Recommend for production)
-For production, it is recommended to enable GPU acceleration, as it significantly improves performance. Use the command below to start the service with GPU support. You can also scale the number of Celery workers using the --scale option; here, 3 workers will be launched:
+For production, it is recommended to enable GPU acceleration, as it significantly improves performance. Use the command below to start the service with GPU support.:
 ```bash
-docker-compose -f docker-compose.gpu.yml up --build --scale celery_worker=3
+docker-compose -f docker-compose.gpu.yml up --build
 ```
 
 ## Service Components
@@ -160,8 +120,6 @@ docker-compose -f docker-compose.gpu.yml up --build --scale celery_worker=3
 The service will start the following components:
 
 - **API Server**: http://localhost:8080
-- **Redis**: http://localhost:6379
-- **Flower Dashboard**: http://localhost:5556
 
 ## API Usage
 
@@ -175,37 +133,7 @@ curl -X POST "http://localhost:8080/documents/convert" \
   -H "Content-Type: multipart/form-data" \
   -F "document=@/path/to/document.pdf" \
   -F "extract_tables_as_images=true" \
-  -F "image_resolution_scale=4"
-```
-
-### Asynchronous Conversion
-
-1. Submit a document for conversion:
-
-```bash
-curl -X POST "http://localhost:8080/conversion-jobs" \
-  -H "accept: application/json" \
-  -H "Content-Type: multipart/form-data" \
-  -F "document=@/path/to/document.pdf"
-```
-
-2. Check conversion status:
-
-```bash
-curl -X GET "http://localhost:8080/conversion-jobs/{job_id}" \
-  -H "accept: application/json"
-```
-
-### Batch Processing
-
-Convert multiple documents asynchronously:
-
-```bash
-curl -X POST "http://localhost:8080/batch-conversion-jobs" \
-  -H "accept: application/json" \
-  -H "Content-Type: multipart/form-data" \
-  -F "documents=@/path/to/document1.pdf" \
-  -F "documents=@/path/to/document2.pdf"
+  -F "image_resolution_scale=1"
 ```
 
 ## Configuration Options
@@ -214,27 +142,17 @@ curl -X POST "http://localhost:8080/batch-conversion-jobs" \
 - `extract_tables_as_images`: Extract tables as images (true/false)
 - `CPU_ONLY`: Build argument to switch between CPU/GPU modes
 
-## Monitoring
-
-- Access the Flower dashboard to monitor Celery tasks and workers
-- View task status, success/failure rates, and worker performance
-- Monitor resource usage and task queues
-
 ## Architecture
 
 The service uses a distributed architecture with the following components:
 
 1. FastAPI application serving the REST API
-2. Celery workers for distributed task processing
-3. Redis as message broker and result backend
-4. Flower for task monitoring and management
-5. Docling for the file conversion
+2. Docling for the file conversion
 
 ## Performance Considerations
 
 - GPU mode provides significantly faster processing for large documents
 - CPU mode is suitable for smaller deployments or when GPU is not available
-- Multiple workers can be scaled horizontally for increased throughput
 
 ## License
 The codebase is under MIT license. See LICENSE for more information
@@ -242,5 +160,3 @@ The codebase is under MIT license. See LICENSE for more information
 ## Acknowledgements
 - [Docling](https://github.com/DS4SD/docling) the state-of-the-art document conversion library by IBM
 - [FastAPI](https://fastapi.tiangolo.com/) the web framework
-- [Celery](https://docs.celeryq.dev/en/stable/) for distributed task processing
-- [Flower](https://flower.readthedocs.io/en/latest/) for monitoring and management
