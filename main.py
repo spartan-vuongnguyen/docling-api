@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from document_converter.route import router as document_converter_router
+from doc_parser.route import router as doc_parser_router
 
 app = FastAPI()
 
@@ -15,4 +15,4 @@ app.add_middleware(
 )
 
 
-app.include_router(document_converter_router, prefix="", tags=["document-converter"])
+app.include_router(doc_parser_router, prefix="", tags=["doc-parser"])

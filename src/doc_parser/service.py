@@ -1,17 +1,11 @@
 import re
-import json
 
-import base64
-import logging
 from io import BytesIO
 from abc import ABC, abstractmethod
 from typing import List, Tuple, Optional, Any
 
-import boto3
 from fastapi import HTTPException
 
-
-# from celery.result import AsyncResult
 from docling.datamodel.base_models import InputFormat, DocumentStream
 from docling.datamodel.pipeline_options import PdfPipelineOptions, EasyOcrOptions
 from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
@@ -40,10 +34,10 @@ from docling_core.transforms.chunker.hierarchical_chunker import (
 )
 
 
-from document_converter.schema import ConversionResult, ParserChunk, ParserChunkMetadata
+from doc_parser.schema import ConversionResult, ParserChunk
 
-from document_converter.utils import image_to_text
-from document_converter.settings import (
+from doc_parser.utils import image_to_text
+from doc_parser.settings import (
     IMAGE_RESOLUTION_SCALE, 
     MAX_TOKENS,
     TEMPERATURE, 
@@ -65,10 +59,10 @@ class DocumentConversionBase(ABC):
 class DoclingDocumentConversion(DocumentConversionBase):
     def _setup_pipeline_options(
         self, 
-        extract_tables: bool = False, 
+        extract_tables: bool = False,
         generate_page_images: bool = False,
         generate_picture_images: bool = True,
-        orc_langs: Optional[List[str]] = ["en"],
+        orc_langs: Optional[List[str]] = ["fr", "de", "es", "en"],
         image_resolution_scale: int = IMAGE_RESOLUTION_SCALE,
     ) -> PdfPipelineOptions:
         pipeline_options = PdfPipelineOptions()
@@ -81,15 +75,19 @@ class DoclingDocumentConversion(DocumentConversionBase):
         return pipeline_options
 
     @staticmethod
-    def _process_document_image(dl_doc: DLDocument, item: PictureItem) -> Optional[str]:
+    def _process_document_image(dl_doc: DLDocument, item: PictureItem, max_tokens: int = MAX_TOKENS, temperature: float = TEMPERATURE, top_p: float = TOP_P) -> Optional[str]:
         text = None
+        if not item.image:
+            raise ValueError("AWS Credentials are missed. Please check the infrastructure.")
+        
         # use VLM for converting
         base64_image = str(item.image.uri).replace("data:image/png;base64,", "").strip()
+
         image_text = image_to_text(
             base64_image,
-            max_tokens=MAX_TOKENS,
-            temperature=TEMPERATURE,
-            top_p=TOP_P,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
         )
 
         # remove useless text
@@ -114,8 +112,11 @@ class DoclingDocumentConversion(DocumentConversionBase):
         extract_tables: bool = False, 
         generate_page_images: bool = False,
         generate_picture_images: bool = True,
-        orc_langs: Optional[List[str]] = ["en"],
+        orc_langs: Optional[List[str]] = ["fr", "de", "es", "en"],
         image_resolution_scale: int = IMAGE_RESOLUTION_SCALE,
+        max_tokens: int = MAX_TOKENS,
+        temperature: float = TEMPERATURE,
+        top_p: float = TOP_P,
     ) -> ConversionResult:
         filename, file = document
         pipeline_options = self._setup_pipeline_options(extract_tables, generate_page_images, generate_picture_images, orc_langs, image_resolution_scale)
@@ -148,7 +149,7 @@ class DoclingDocumentConversion(DocumentConversionBase):
             return ConversionResult(filename=filename, error=conv_res.errors[0].error_message)
 
         chunker = DoclingChunker()
-        chunks = chunker.hierarchical_chunk(conv_res.document, indent=4)
+        chunks = chunker.hierarchical_chunk(conv_res.document, indent=4, max_tokens=max_tokens, temperature=temperature, top_p=top_p)
 
         chunk_dicts = self.post_process_chunks(chunker.chunker, chunks, indent=4)
         
@@ -160,8 +161,11 @@ class DoclingDocumentConversion(DocumentConversionBase):
         extract_tables: bool = False, 
         generate_page_images: bool = False,
         generate_picture_images: bool = True,
-        orc_langs: Optional[List[str]] = ["en"],
+        orc_langs: Optional[List[str]] = ["fr", "de", "es", "en"],
         image_resolution_scale: int = IMAGE_RESOLUTION_SCALE,
+        max_tokens: int = MAX_TOKENS,
+        temperature: float = TEMPERATURE,
+        top_p: float = TOP_P,
     ) -> List[ConversionResult]:
         pipeline_options = self._setup_pipeline_options(extract_tables, generate_page_images, generate_picture_images, orc_langs, image_resolution_scale)
         doc_converter = DocumentConverter(
@@ -193,15 +197,13 @@ class DoclingDocumentConversion(DocumentConversionBase):
 
         results = []
         for conv_res in conv_results:
-            doc_filename = conv_res.input.file.stem
-
             if conv_res.errors:
                 logger.error(f"Failed to convert {conv_res.input.name}: {conv_res.errors[0].error_message}")
                 results.append(ConversionResult(filename=conv_res.input.name, error=conv_res.errors[0].error_message))
                 continue
 
             chunker = DoclingChunker()
-            chunks = chunker.hierarchical_chunk(conv_res.document, indent=4)
+            chunks = chunker.hierarchical_chunk(conv_res.document, indent=4, max_tokens=max_tokens, temperature=temperature, top_p=top_p)
             
             chunk_dicts = self.post_process_chunks(chunker.chunker, chunks, indent=4)
 
@@ -295,18 +297,18 @@ class DoclingDocumentConversion(DocumentConversionBase):
 
 
 class DocumentConverterService:
-    def __init__(self, document_converter: DocumentConversionBase):
-        self.document_converter = document_converter
+    def __init__(self, doc_parser: DocumentConversionBase):
+        self.doc_parser = doc_parser
 
     def convert_document(self, document: Tuple[str, BytesIO], **kwargs) -> ConversionResult:
-        result = self.document_converter.convert(document, **kwargs)
+        result = self.doc_parser.convert(document, **kwargs)
         if result.error:
-            logging.error(f"Failed to convert {document[0]}: {result.error}")
+            logger.error(f"Failed to convert {document[0]}: {result.error}")
             raise HTTPException(status_code=500, detail=result.error)
         return result
 
     def convert_documents(self, documents: List[Tuple[str, BytesIO]], **kwargs) -> List[ConversionResult]:
-        return self.document_converter.convert_batch(documents, **kwargs)
+        return self.doc_parser.convert_batch(documents, **kwargs)
 
 
 class DoclingChunker:
@@ -405,7 +407,8 @@ class DoclingChunker:
                 elif isinstance(item, PictureItem):
                     text = DoclingDocumentConversion._process_document_image(
                         dl_doc,
-                        item
+                        item,
+                        **kwargs
                     )
                     if not text:
                         continue

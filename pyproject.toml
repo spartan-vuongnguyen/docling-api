@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "document_converter"
+name = "doc_parser"
 version = "0.1.0"
 description = ""
 authors = ["Atrix <vuong.nguyen@atrix.ai>"]

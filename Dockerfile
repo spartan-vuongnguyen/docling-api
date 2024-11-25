@@ -1,7 +1,7 @@
 # Use a base image with CUDA support and the desired Python version
 FROM python:3.12-slim-bookworm
 
-ARG CPU_ONLY=false
+ARG CPU_ONLY=true
 WORKDIR /app
 
 RUN apt-get update \
@@ -32,11 +32,11 @@ RUN python -c 'from docling.pipeline.standard_pdf_pipeline import StandardPdfPip
 
 # Pre-download EasyOCR models in compatible groups
 RUN python -c 'import easyocr; \
-    reader = easyocr.Reader(["fr", "de", "es", "en", "it", "pt"], gpu=True); \
+    reader = easyocr.Reader(["fr", "de", "es", "en", "it", "pt"], gpu=not $CPU_ONLY); \
     print("EasyOCR models downloaded successfully")'
 
 COPY . .
 
-EXPOSE 8080
+EXPOSE 9090
 
-CMD ["poetry", "run", "uvicorn", "--port", "8080", "--host", "0.0.0.0", "main:app"]
+CMD ["poetry", "run", "uvicorn", "--port", "9090", "--host", "0.0.0.0", "main:app"]
