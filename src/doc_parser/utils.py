@@ -6,7 +6,7 @@ from typing import Dict, List
 
 import boto3
 
-from document_converter.settings import IMAGE_RESOLUTION_SCALE, logger
+from doc_parser.settings import logger
 
 
 class InputFormat(str, Enum):
@@ -136,8 +136,6 @@ def image_to_text(
             },
         )
 
-        logger.info(f"Calling {inference_profile_id}")
-
         response = client.invoke_model(
             modelId=inference_profile_id,
             body=body,
@@ -147,8 +145,12 @@ def image_to_text(
         response_body = json.loads(response.get("body").read())
 
         # text
-        return response_body.get("generation").strip()
+        result = response_body.get("generation").strip()
+
+        logger.info(f"Successful for calling {inference_profile_id}.")
+
+        return result
 
     except Exception as e:
-        logger.exception(f"An error occurred while invoking the model: {e}")
+        logger.exception(f"An error occurred while invoking the model: {e}.")
         return ""

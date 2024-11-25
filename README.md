@@ -47,7 +47,7 @@ curl -sSL https://install.python-poetry.org | python3 -
 ### 2. Clone and Setup Project
 ```bash
 git clone https://github.com/drmingler/docling-api.git
-cd document-converter
+cd docling-parser
 poetry install
 ```
 
@@ -62,26 +62,26 @@ ENV=development
 
 1. Start the FastAPI server:
 ```bash
-poetry run uvicorn main:app --reload --port 8080
+poetry run uvicorn main:app --reload --port 9090
 ```
 
 ### 5. Verify Installation
 
 1. Check if the API server is running:
 ```bash
-curl http://localhost:8080/docs
+curl http://localhost:9090/docs
 ```
 
 ### Development Notes
 
-- The API documentation is available at http://localhost:8080/docs
+- The API documentation is available at http://localhost:9090/docs
 
 ## Environment Setup (Running in Docker)
 
 1. Clone the repository:
 ```bash
 git clone https://github.com/drmingler/docling-api.git
-cd document-converter
+cd doc-parser
 ```
 
 2. Create a `.env` file:
@@ -105,7 +105,7 @@ docker-compose -f docker-compose.gpu.yml up --build
 
 The service will start the following components:
 
-- **API Server**: http://localhost:8080
+- **API Server**: http://localhost:9090
 
 ## API Usage
 
@@ -114,14 +114,30 @@ The service will start the following components:
 Convert a single document immediately:
 
 ```bash
-curl -X POST "http://localhost:8080/documents/convert" \
+curl -X POST "http://localhost:9090/documents/convert" \
   -H "accept: application/json" \
   -H "Content-Type: multipart/form-data" \
   -F "document=@/path/to/document.pdf" \
   -F "extract_tables_as_images=true" \
-  -F "image_resolution_scale=1"
+  -F "image_resolution_scale=1" \
+  -F "max_tokens=256" \
+  -F "temperature=0.3" \
+  -F "top_p=0.95"
 ```
 
+Convert many documents:
+
+```bash
+curl -X POST "http://localhost:9090/documents/batch-convert" \
+  -H "accept: application/json" \
+  -H "Content-Type: multipart/form-data" \
+  -F "document=[@/path/to/document.pdf]" \
+  -F "extract_tables_as_images=true" \
+  -F "image_resolution_scale=1" \
+  -F "max_tokens=256" \
+  -F "temperature=0.3" \
+  -F "top_p=0.95"
+```
 ## Configuration Options
 
 - `image_resolution_scale`: Control the resolution of extracted images (1-4)

@@ -2,20 +2,20 @@ version: "3.11"
 
 services:
   app:
-    container_name: marker-api-cpu
+    container_name: doc-parser-cpu
     build:
       context: .
       args:
         CPU_ONLY: "true"
     image: converter-cpu-image
-    command: poetry run uvicorn --port 8080 --host 0.0.0.0 main:app
+    command: poetry run uvicorn --port 9090 --host 0.0.0.0 main:app
     environment:
       - ENV=production
       - MALLOC_ARENA_MAX=2
       - OMP_NUM_THREADS=2
       - PYTHONMALLOC=malloc
     ports:
-      - "8080:8080"
+      - "9090:9090"
     volumes:
       - .:/app
       - model_cache:/tmp
